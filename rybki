@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Fishing Simulator</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; user-select:none; -webkit-tap-highlight-color:transparent; }
+  
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    background: linear-gradient(180deg,#001a33 0%,#003d66 50%,#005c99 100%);
+    min-height:100vh; color:#fff; overflow-x:hidden;
+    display:flex; flex-direction:column; align-items:center;
+    padding:10px; gap:8px;
+  }
+
+  .stats {
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+    background:rgba(0,40,80,.7); border:1px solid #00d4ff55;
+    border-radius:10px; padding:8px; font-size:14px; font-weight:bold;
+    width:100%; max-width:500px;
+  }
+  .stats span { color:#00ffcc; }
+  .stats .rank { color:#ffcc00; }
+  .stats .day { color:#ffaa00; }
+
+  .xp-bar-wrap { width:100%; max-width:500px; background:rgba(0,20,40,.75); border:1px solid #00d4ff33; border-radius:10px; padding:8px; margin-bottom: 4px;}
+  .xp-top { display:flex; justify-content:space-between; font-size:12px; color:#aaddff; margin-bottom:4px; font-weight:bold; }
+  .xp-top .rank { color:#ffcc00; }
+  .xp-bar { height:8px; background:rgba(0,0,0,.5); border-radius:4px; overflow:hidden; }
+  .xp-fill { height:100%; width:0%; background:#ffcc00; border-radius:4px; transition:width .3s ease; }
+  .energy-bar { height:6px; background:rgba(0,0,0,.5); border-radius:3px; overflow:hidden; margin-top:2px;}
+  .energy-fill { height:100%; width:100%; background:#ff4444; border-radius:3px; transition:width .3s ease; }
+
+  .tabs { 
+    display:flex; flex-wrap:wrap; gap:4px; justify-content:center;
+    width:100%; max-width:500px; 
+    background:rgba(0,20,40,.7); border-radius:10px; padding:4px; 
+    border:1px solid #00d4ff33; 
+  }
+  .tab { 
+    flex: 1 1 22%; min-width: 90px;
+    padding:8px 4px; border:none; border-radius:6px; cursor:pointer; 
+    background:transparent; color:#88bbdd; font-size:12px; font-family:inherit; font-weight:bold; text-align: center; 
+  }
+  .tab.active { background:linear-gradient(135deg,#00d4ff,#0077cc); color:#001a33; }
+
+  button { font-family:inherit; font-size:12px; font-weight:bold; padding:8px; border:none; border-radius:8px; cursor:pointer; background:linear-gradient(135deg,#00d4ff,#0077cc); color:#001a33; transition:transform .1s; }
+  button:active { transform:scale(.96); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.sell { background:linear-gradient(135deg,#00ff88,#00aa55); color:#002211; }
+  .full { grid-column:1/-1; }
+
+  .toast-container { position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:150; display:flex; flex-direction:column; gap:6px; pointer-events:none; width:100%; max-width:400px; padding:0 10px; }
+  .toast { background:rgba(0,30,60,.95); border-left:3px solid #00d4ff; border-radius:8px; padding:10px; font-size:12px; font-weight:bold; box-shadow:0 4px 20px #000000aa; animation:toastIn .3s, toastOut .4s 2.2s forwards; }
+  @keyframes toastIn { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes toastOut { to { opacity:0; transform:translateY(-10px); } }
+  
+  .rarity-trash { color:#888; border-color:#888 !important; }
+  .rarity-ru { color:#00dd88; border-color:#00dd88 !important; }
+  .rarity-craft { color:#00aaff; border-color:#00aaff !important; }
+  .rarity-used { color:#cc66ff; border-color:#cc66ff !important; }
+  .rarity-import { color:#ffcc00; border-color:#ffcc00 !important; }
+  .rarity-custom { color:#ff4444; border-color:#ff4444 !important; }
+
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:100; padding:15px; }
+  .modal.show { display:flex; }
+  .modal-box { background:#001a33; border:2px solid #ffcc00; border-radius:12px; padding:15px; max-width:350px; width:100%; text-align:center; max-height:80vh; overflow-y:auto; }
+  .modal-box h2 { color:#ffcc00; margin-bottom:10px; font-size:16px; }
+
+  .inventory { width:100%; max-width:500px; display:none; flex-direction:column; gap:8px; }
+  .inventory.show { display:flex; }
+  .inv-section { background:rgba(0,20,40,.75); border:1px solid #00d4ff33; border-radius:10px; padding:10px; }
+  .inv-title { font-size:14px; font-weight:bold; color:#00d4ff; margin-bottom:8px; display:flex; justify-content:space-between; }
+  .inv-hint { font-size:12px; color:#88bbdd; margin-bottom:6px; text-align:center; font-style:italic; }
+  
+  .inv-row { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; }
+  .inv-item { min-width:70px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; background:rgba(0,60,100,.5); border-radius:8px; padding:6px 4px; border:1px solid #00d4ff22; cursor:pointer; }
+  .inv-item .name { font-size:12px; color:#aaddff; margin-top:4px; text-align:center; line-height: 1.2; }
+  .inv-item .count { position:absolute; top:2px; right:2px; background:#00d4ff; color:#001a33; font-size:10px; font-weight:bold; padding:1px 4px; border-radius:4px; }
+  .inv-item .price { font-size:12px; color:#ffcc00; margin-top:2px; font-weight:bold; }
+  .inv-empty { color:#557799; font-size:12px; padding:6px 0; text-align:center; }
+
+  .shop-category-title { font-size:14px; font-weight:bold; color:#ffcc00; margin:10px 0 6px 0; border-bottom:1px solid #ffcc0033; padding-bottom:4px; }
+  .shop-category-title:first-child { margin-top:0; }
+  .shop-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .shop-item { background:rgba(0,60,100,.5); border:1px solid #00d4ff22; border-radius:8px; padding:8px; display:flex; flex-direction:column; justify-content:space-between; }
+  .shop-item .si-type { font-size:10px; color:#88bbdd; margin-bottom:4px; display:block; }
+  .shop-item .si-name { font-size:13px; color:#fff; margin-bottom:4px; line-height: 1.2; font-weight:bold; }
+  .shop-item .si-desc { font-size:11px; color:#aaddff; margin-bottom:6px; }
+  .si-buy { width:100%; padding:6px; font-size:12px; margin-top:auto; background:rgba(0,212,255,.2); color:#00d4ff; border:1px solid #00d4ff; border-radius:4px; cursor:pointer; font-weight:bold; }
+  .si-buy:disabled { opacity:.4; border-color:#555; color:#555; }
+
+  .rod-assembly { background:rgba(0,20,40,.75); border:1px solid #00d4ff33; border-radius:10px; padding:10px; margin-bottom:8px; }
+  .slot-row { display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,.3); border-radius:6px; padding:10px; margin-bottom:4px; cursor:pointer;}
+  .slot-row .rs-label { font-size:12px; color:#88bbdd; width:80px; }
+  .slot-row .rs-val { font-size:12px; font-weight:bold; text-align:right; flex:1; color: #00ff88; line-height: 1.2;}
+  .repair-btn { background:#ffaa00; color:#001a33; border:none; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:6px; cursor:pointer; font-weight:bold;}
+
+  .pond { position:relative; width:100%; max-width:500px; height:160px; background: radial-gradient(ellipse at 50% 30%, #0a6ea8 0%, #043d63 60%, #02243d 100%); border-radius:12px; overflow:hidden; cursor:pointer; border:2px solid #00d4ff66; }
+  .pond.tazik { background: radial-gradient(circle at 50% 50%, #b87333 0%, #6e3d1a 70%, #3a1e0a 100%); border-color: #ffcc00; }
+  .bg-fish { position: absolute; width: 20px; height: 10px; background: rgba(0, 212, 255, 0.3); border-radius: 50%; pointer-events: none; }
+  .bg-fish::after { content: ''; position: absolute; top: 20%; right: -6px; border-top: 3px solid transparent; border-bottom: 3px solid transparent; border-left: 6px solid rgba(0, 212, 255, 0.3); }
+  @keyframes swimRight { 0% { transform: translateX(-50px); } 100% { transform: translateX(550px); } }
+  @keyframes swimLeft { 0% { transform: translateX(550px) scaleX(-1); } 100% { transform: translateX(-50px) scaleX(-1); } }
+  .wave { position:absolute; width:200%; height:100%; top:0; left:-50%; background: radial-gradient(ellipse at center, transparent 60%, #00d4ff11 100%); animation: wave 6s linear infinite; }
+  @keyframes wave { 0%{transform:translateX(0)} 100%{transform:translateX(25%)} }
+  .float-text { position:absolute; font-size:14px; font-weight:bold; pointer-events:none; animation:floatUp 1s ease-out forwards; text-shadow:0 0 10px currentColor; z-index:10; }
+  @keyframes floatUp { 100% { opacity:0; transform:translateY(-50px); } }
+  .status { font-size:14px; font-weight:bold; min-height:20px; color:#00ffcc; text-align:center; margin-top:10px; }
+
+  .bank-card { background:rgba(0,20,40,.75); border:1px solid #66ccff44; border-radius:10px; padding:10px; margin-bottom:8px; }
+  .bank-card-title { font-size:14px; font-weight:bold; color:#66ccff; margin-bottom:8px; display:flex; justify-content:space-between; border-bottom:1px solid #66ccff33; padding-bottom:6px; }
+  .dep-opt { display:flex; justify-content:space-between; align-items:center; background:rgba(0,60,100,.5); border:1px solid #66ccff33; border-radius:6px; padding:8px; margin-bottom:6px; cursor:pointer; }
+  .dep-opt .dep-name { font-size:12px; color:#aaddff; font-weight:bold; }
+  .dep-opt .dep-rate { font-size:10px; color:#00ff88; margin-top:2px; }
+  .dep-opt .dep-get { font-size:13px; color:#ffcc00; text-align:right; font-weight:bold; }
+  .active-dep { background:rgba(0,60,100,.5); border:1px solid #66ccff33; border-radius:6px; padding:8px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
+  .active-dep .ad-name { font-size:12px; color:#aaddff; font-weight:bold; }
+  .active-dep .ad-status { font-size:10px; color:#ffaa00; }
+  .active-dep .ad-amount { color:#00ff88; font-size:14px; font-weight:bold; }
+  .reset-btn { background:#ff4444 !important; color:#fff !important; margin-top:10px; width:100%; font-size:14px; padding:12px; }
+
+  /* ИВЕНТ 100 УРОВНЯ */
+  .event-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:9999;
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px; text-align:center; color:#fff;
+  }
+  .event-overlay.show { display:flex; }
+  .event-overlay h1 { color:#ffcc00; font-size:26px; margin-bottom:20px; text-shadow:0 0 20px #ffcc00; animation:pulse 1.5s infinite; font-weight:bold; }
+  .event-overlay p { font-size:16px; font-weight:bold; line-height:1.8; margin-bottom:30px; max-width:500px; }
+  .event-overlay button { font-size:16px; padding:15px 30px; background:#00ff88; color:#002211; border-radius:10px; border:none; cursor:pointer; font-family:inherit; font-weight:bold; }
+  @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+
+  /* ДОСТИЖЕНИЕ */
+  .achievement {
+    background: linear-gradient(135deg, #ffcc00, #ff8800);
+    color: #001a33; padding: 15px; border-radius: 10px;
+    text-align: center; font-size: 16px; font-weight: bold;
+    box-shadow: 0 0 20px #ffcc00aa; margin-top: 20px;
+    animation: pulse 2s infinite;
+  }
+  
+  /* СЕТКА ДОСТИЖЕНИЙ */
+  .ach-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .ach-item {
+    background: rgba(0,60,100,.5); border: 1px solid #00d4ff22;
+    border-radius: 8px; padding: 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .ach-item.locked { opacity: 0.4; }
+  .ach-icon { font-size: 20px; color: #ffcc00; }
+  .ach-info { display: flex; flex-direction: column; gap: 2px; }
+  .ach-name { font-size: 12px; color: #fff; font-weight: bold; }
+  .ach-desc { font-size: 10px; color: #88bbdd; }
+
+  /* СТИЛЬ ДЛЯ ЛОКАЦИЙ */
+  .loc-card { background:rgba(0,20,40,.75); border:1px solid #00d4ff33; border-radius:10px; padding:15px; margin-bottom:10px; text-align:center; }
+  .loc-title { font-size:20px; font-weight:bold; color:#00d4ff; margin-bottom:10px; text-transform:uppercase; }
+  .loc-btn { width:100%; padding:10px; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ИВЕНТ 100 УРОВНЯ -->
+<div class="event-overlay" id="eventOverlay">
+  <h1>ПОЗДРАВЛЯЕМ!</h1>
+  <p>
+    ВЫ ПРОШЛИ ИГРУ!<br>
+    ВЫ ДОСТИГЛИ НАВЫКА РЫБАЛКИ ДЕДА,<br>
+    ОН ГОРДИТСЯ ВАМИ.<br>
+    ОН ХОЧЕТ С ВАМИ ПОРЫБАЧИТЬ.<br><br>
+    ДАЛЕЕ ВЫ МОЖЕТЕ ПРОДОЛЖИТЬ РЫБАЧИТЬ,<br>
+    ТЕПЕРЬ ВМЕСТЕ С ДЕДОМ
+  </p>
+  <button onclick="document.getElementById('eventOverlay').classList.remove('show')">ПРОДОЛЖИТЬ</button>
+</div>
+
+<div class="stats">
+  <div>Деньги: <span id="money">0</span></div>
+  <div>Улов: <span id="catchCount">0</span>/<span id="invCap">10</span></div>
+  <div>Ур: <span class="rank" id="rankVal">1</span> (<span id="rankName">Нуб</span>)</div>
+  <div>День: <span class="day" id="dayVal">1</span></div>
+  <div id="debtBadge" style="display:none;color:#ff6666">Долг: <span id="debtVal">0</span></div>
+</div>
+
+<div class="xp-bar-wrap">
+  <div class="xp-top">
+    <span>Опыт: <span id="xpVal">0</span> / <span id="xpNeed">10</span></span>
+    <span class="rank" id="rankBadge">1 ур.</span>
+  </div>
+  <div class="xp-bar"><div class="xp-fill" id="xpFill"></div></div>
+  <div class="energy-bar"><div class="energy-fill" id="energyFill"></div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="fishing">Рыбалка</button>
+  <button class="tab" data-tab="locations">Локации</button>
+  <button class="tab" data-tab="garage">Гараж</button>
+  <button class="tab" data-tab="market">Рынок</button>
+  <button class="tab" data-tab="shop">Магазин</button>
+  <button class="tab" data-tab="crates">Ящики</button>
+  <button class="tab" data-tab="fishers">Рыбаки</button>
+  <button class="tab" data-tab="collection">Коллекция</button>
+  <button class="tab" data-tab="achievements">Достижения</button>
+  <button class="tab" data-tab="bank">Банк</button>
+</div>
+
+<div id="fishingView" style="width:100%; max-width:500px; display:flex; flex-direction:column; gap:8px; align-items:center;">
+  <div style="width:100%; text-align:center; font-size:14px; font-weight:bold; color:#00d4ff;" id="currentLocName">Пруд</div>
+  <div class="pond" id="pond"><div class="wave"></div></div>
+  <div class="status" id="status">Тапни по воде, чтобы забросить</div>
+  
+  <div style="display:flex; gap:6px; width:100%;">
+    <button class="sell" id="sellBtn" style="flex:1;" disabled>Продать улов (0)</button>
+    <button id="restBtn" style="flex:1; background:#ffaa00; color:#3a1a00;">Отдохнуть</button>
+  </div>
+</div>
+
+<div class="inventory" id="locationsView"><div id="locationsList"></div></div>
+
+<div class="inventory" id="garageView">
+  <div class="inv-section">
+    <div class="inv-title"><span>Удочка</span></div>
+    <div class="rod-assembly">
+      <div class="slot-row" onclick="openPicker('rod', 'rod')">
+        <div class="rs-label">Удилище</div>
+        <div class="rs-val" id="gRod">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('rod', 'reel')">
+        <div class="rs-label">Катушка</div>
+        <div class="rs-val" id="gReel">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('rod', 'line')">
+        <div class="rs-label">Леска</div>
+        <div class="rs-val" id="gLine">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('rod', 'hook')">
+        <div class="rs-label">Крючок</div>
+        <div class="rs-val" id="gHook">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('rod', 'float')">
+        <div class="rs-label">Поплавок</div>
+        <div class="rs-val" id="gFloat">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('rod', 'bait')">
+        <div class="rs-label">Наживка</div>
+        <div class="rs-val" id="gBait">-</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#88bbdd;text-align:center;margin-top:8px;font-weight:bold">
+      Скорость: <span id="statSpeed" style="color:#00d4ff">+0%</span> | 
+      Удача: <span id="statLuck" style="color:#cc66ff">+0%</span>
+    </div>
+  </div>
+
+  <div class="inv-section">
+    <div class="inv-title"><span>Лодка</span></div>
+    <div class="rod-assembly">
+      <div class="slot-row" onclick="openPicker('boat', 'motor')">
+        <div class="rs-label">Мотор</div>
+        <div class="rs-val" id="gMotor">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('boat', 'hull')">
+        <div class="rs-label">Корпус</div>
+        <div class="rs-val" id="gHull">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('boat', 'radar')">
+        <div class="rs-label">Радар</div>
+        <div class="rs-val" id="gRadar">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('boat', 'elec')">
+        <div class="rs-label">Электроника</div>
+        <div class="rs-val" id="gElec">-</div>
+      </div>
+      <div class="slot-row" onclick="openPicker('boat', 'hold')">
+        <div class="rs-label">Трюм</div>
+        <div class="rs-val" id="gHold">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="inv-section">
+    <div class="inv-title"><span>Улов</span><span id="invFishTotal" style="color:#ffcc00">0</span></div>
+    <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; margin-bottom:6px; color:#aaddff;">
+      <span>Занято: <span id="invFill">0</span>/<span id="invCap2">10</span></span>
+      <div style="flex:1; height:6px; background:rgba(0,0,0,.5); border-radius:3px; margin:0 8px; overflow:hidden;"><div style="height:100%; width:0%; background:#00d4ff;" id="invCapFill"></div></div>
+      <button id="expandInv" style="padding:2px 8px;font-size:10px;border-radius:4px;background:#00d4ff;color:#001a33;border:none;cursor:pointer;font-weight:bold;">+5 слотов</button>
+    </div>
+    <div class="inv-hint" id="invHintText">Тапни по рыбе — продать.</div>
+    <div class="inv-row" id="invFishRow"><div class="inv-empty">Пока пусто. Иди ловить!</div></div>
+  </div>
+
+  <div class="inv-section">
+    <div class="inv-title"><span>Энергетики</span></div>
+    <div class="inv-row" id="invEnergyRow"><div class="inv-empty">Нет предметов</div></div>
+  </div>
+</div>
+
+<div class="inventory" id="marketView">
+  <div class="inv-section">
+    <div class="inv-title"><span>Продажа</span><span style="color:#ffcc00">Улов: <span id="marketCatchCount">0</span></span></div>
+    <div class="market-row" id="marketSellGrid"></div>
+  </div>
+  <div class="inv-section">
+    <div class="inv-title"><span>Покупка</span><span style="color:#ffcc00">Баланс: <span id="marketMoney">0</span></span></div>
+    <div class="market-row" id="marketBuyGrid"></div>
+  </div>
+</div>
+
+<div class="inventory" id="shopView">
+  <div class="inv-section">
+    <div class="inv-title"><span>Магазин</span><span style="color:#ffcc00">Баланс: <span id="shopMoney">0</span></span></div>
+    <div id="shopContainer"></div>
+  </div>
+</div>
+
+<div class="inventory" id="cratesView">
+  <div class="inv-section">
+    <div class="inv-title"><span>Ящики</span><span style="color:#ffcc00">Баланс: <span id="crateMoney">0</span></span></div>
+    
+    <div class="shop-category-title">Ящики со снастями</div>
+    <div class="shop-grid" id="crateGrid"></div>
+    
+    <div class="shop-category-title">Ящики с деталями лодки</div>
+    <div class="shop-grid" id="boatCrateGrid"></div>
+
+    <div class="shop-category-title">Ящики с рыбой</div>
+    <div class="shop-grid" id="fishCrateGrid"></div>
+  </div>
+</div>
+
+<div class="inventory" id="fishersView">
+  <div class="inv-section">
+    <div class="inv-title"><span>Рыбаки</span><span style="color:#00ff88" id="fisherCount">0 / 3</span></div>
+    <div class="inv-hint">Ловят за тебя рыбу каждый день.</div>
+    <div class="inv-row" id="fisherRow"></div>
+  </div>
+</div>
+
+<div class="inventory" id="collectionView">
+  <div class="inv-section">
+    <div class="inv-title"><span>Коллекция</span><span id="collProgress">0/0</span></div>
+    <div id="collList"></div>
+  </div>
+</div>
+
+<div class="inventory" id="achievementsView">
+  <div class="inv-section">
+    <div class="inv-title"><span>Достижения</span><span id="achProgress">0/50</span></div>
+    <div class="ach-grid" id="achList"></div>
+    <button class="reset-btn" onclick="document.getElementById('resetModal').classList.add('show')">Сбросить прогресс</button>
+  </div>
+</div>
+
+<div class="inventory" id="bankView">
+  <div class="bank-card">
+    <div class="bank-card-title"><span>Вклады</span><span class="amount" id="depTotal">0</span></div>
+    <div id="depositOptions"></div>
+  </div>
+  <div class="bank-card">
+    <div class="bank-card-title"><span>Активные вклады</span></div>
+    <div id="activeDeposits"><div class="inv-empty">Нет вкладов</div></div>
+  </div>
+  <div class="bank-card">
+    <div class="bank-card-title"><span>Кредиты</span><span class="amount" id="creditStatus">Нет долга</span></div>
+    <div id="creditOptions"></div>
+  </div>
+  <div class="bank-card" id="activeCreditCard" style="display:none">
+    <div class="bank-card-title"><span>Текущий кредит</span><span class="amount" id="acAmount">0</span></div>
+    <div class="active-credit" id="activeCreditBox"></div>
+  </div>
+</div>
+
+<div class="modal" id="pickFishModal">
+  <div class="modal-box">
+    <h2 id="pickTitle">Выбор</h2>
+    <div id="fishPickGrid" style="display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:10px;max-height:250px;overflow-y:auto"></div>
+    <button style="background:#ff4444;color:#fff;width:100%" id="closePick">Отмена</button>
+  </div>
+</div>
+
+<div class="modal" id="resetModal">
+  <div class="modal-box">
+    <h2>Сброс?</h2>
+    <p style="font-size:12px;font-weight:bold;margin-bottom:10px;">Удалит ВСЁ безвозвратно.</p>
+    <button class="reset-btn" onclick="localStorage.removeItem('fishing_game_v23'); location.reload();">Сбросить</button>
+    <button style="margin-top:6px;width:100%" id="cancelReset">Отмена</button>
+  </div>
+</div>
+
+<script>
+document.charset = "UTF-8";
+
+const LOCATIONS = [
+  { id:'pond', name:'Пруд', boatReq:'boat_pond',
+    fish: [
+      { name:'Карась', rarity:'common', price:6, chance:60 },
+      { name:'Окунь', rarity:'common', price:5, chance:60 },
+      { name:'Карп', rarity:'uncommon', price:15, chance:30 },
+      { name:'Сом', rarity:'rare', price:40, chance:10 },
+    ]},
+  { id:'tazik', name:'Тазик', boatReq:'boat_tazik',
+    fish: [
+      { name:'Пластиковая рыбка', rarity:'common', price:0, chance:50 },
+      { name:'Оловянный солдатик', rarity:'common', price:0, chance:30 },
+      { name:'Резиновая уточка', rarity:'uncommon', price:0, chance:15 },
+      { name:'Игрушечная акула', rarity:'rare', price:0, chance:5 },
+    ]},
+  { id:'river', name:'Река', boatReq:'boat_river',
+    fish: [
+      { name:'Щука', rarity:'common', price:18, chance:50 },
+      { name:'Судак', rarity:'uncommon', price:25, chance:30 },
+      { name:'Сёмга', rarity:'rare', price:60, chance:15 },
+      { name:'Осётр', rarity:'epic', price:150, chance:5 },
+    ]},
+  { id:'sea', name:'Море', boatReq:'boat_sea',
+    fish: [
+      { name:'Камбала', rarity:'common', price:40, chance:50 },
+      { name:'Тунец', rarity:'uncommon', price:120, chance:30 },
+      { name:'Акула', rarity:'epic', price:350, chance:15 },
+      { name:'Марлин', rarity:'legend', price:800, chance:5 },
+    ]},
+];
+
+const BOATS = [
+  { id:'boat_pond', name:'Плоскодонка', loc:'pond', price:0, rarity:'trash' },
+  { id:'boat_tazik', name:'Медный тазик', loc:'tazik', price:75, rarity:'trash' },
+  { id:'boat_river', name:'ПВХ Лодка', loc:'river', price:1000, rarity:'ru' },
+  { id:'boat_sea', name:'Катер', loc:'sea', price:5000, rarity:'import' },
+  { id:'boat_ded', name:'ДЕДОВСКИЙ КАТЕР', loc:'sea', price:999999, rarity:'custom' },
+];
+
+const RARITY_META = {
+  trash:  { label:'С помойки', class:'rarity-trash' },
+  ru:     { label:'Отечеств.', class:'rarity-ru' },
+  craft:  { label:'Кустарное', class:'rarity-craft' },
+  used:   { label:'Б/У', class:'rarity-used' },
+  import: { label:'Импорт', class:'rarity-import' },
+  custom: { label:'Кастом', class:'rarity-custom' }
+};
+
+const FISH_META = { common:{xp:2}, uncommon:{xp:5}, rare:{xp:12}, epic:{xp:30}, legend:{xp:80} };
+
+const CONSUMABLES = [
+  { id:'en1', name:'Энергетик', price: 100, energy: 30 },
+  { id:'en2', name:'Кофе', price: 200, energy: 50 },
+  { id:'en3', name:'Таблетки', price: 500, energy: 100 },
+];
+
+const EQUIPMENT = [
+  { id:'rod1', type:'rod', name:'Палка', rarity:'trash', price:0, stat:'speed', val:0, dur:100 },
+  { id:'rod2', type:'rod', name:'Китайский спиннинг', rarity:'ru', price:150, stat:'speed', val:5, dur:100 },
+  { id:'rod3', type:'rod', name:'Волжанка', rarity:'ru', price:400, stat:'speed', val:12, dur:100 },
+  { id:'rod4', type:'rod', name:'Kaida Craft', rarity:'craft', price:1000, stat:'speed', val:18, dur:100 },
+  { id:'rod5', type:'rod', name:'Shimano FX', rarity:'used', price:2500, stat:'speed', val:28, dur:100 },
+  { id:'rod6', type:'rod', name:'Daiwa Exceler', rarity:'import', price:7000, stat:'speed', val:45, dur:100 },
+  { id:'rod7', type:'rod', name:'Graphiteleader', rarity:'custom', price:18000, stat:'speed', val:70, dur:100 },
+  { id:'rod_ded', type:'rod', name:'ДЕДОВСКАЯ УДОЧКА', rarity:'custom', price:0, stat:'speed', val:150, dur:9999 },
+
+  { id:'reel1', type:'reel', name:'Советская', rarity:'trash', price:0, stat:'speed', val:0, dur:100 },
+  { id:'reel2', type:'reel', name:'Кобра', rarity:'ru', price:200, stat:'speed', val:8, dur:100 },
+  { id:'reel3', type:'reel', name:'Самоделка', rarity:'craft', price:600, stat:'speed', val:15, dur:100 },
+  { id:'reel4', type:'reel', name:'Shimano Sienna', rarity:'used', price:2000, stat:'speed', val:25, dur:100 },
+  { id:'reel5', type:'reel', name:'Daiwa Revros', rarity:'import', price:6000, stat:'speed', val:40, dur:100 },
+  { id:'reel6', type:'reel', name:'Shimano Stella', rarity:'custom', price:25000, stat:'speed', val:60, dur:100 },
+  { id:'reel_ded', type:'reel', name:'ДЕДОВСКАЯ КАТУШКА', rarity:'custom', price:0, stat:'speed', val:120, dur:9999 },
+
+  { id:'line1', type:'line', name:'Обычная нить', rarity:'trash', price:0, stat:'luck', val:0, dur:100 },
+  { id:'line2', type:'line', name:'Клинская', rarity:'ru', price:150, stat:'luck', val:3, dur:100 },
+  { id:'line3', type:'line', name:'Связанная', rarity:'craft', price:400, stat:'luck', val:6, dur:100 },
+  { id:'line4', type:'line', name:'Owner Broad', rarity:'used', price:1200, stat:'luck', val:10, dur:100 },
+  { id:'line5', type:'line', name:'Sunline', rarity:'import', price:4000, stat:'luck', val:16, dur:100 },
+  { id:'line6', type:'line', name:'Seaguar', rarity:'custom', price:10000, stat:'luck', val:25, dur:100 },
+  { id:'line_ded', type:'line', name:'ДЕДОВСКАЯ ЛЕСКА', rarity:'custom', price:0, stat:'luck', val:50, dur:9999 },
+
+  { id:'hook1', type:'hook', name:'Гвоздь', rarity:'trash', price:0, stat:'luck', val:0, dur:100 },
+  { id:'hook2', type:'hook', name:'Кованый', rarity:'ru', price:100, stat:'luck', val:2, dur:100 },
+  { id:'hook3', type:'hook', name:'Проволока', rarity:'craft', price:300, stat:'luck', val:4, dur:100 },
+  { id:'hook4', type:'hook', name:'Owner', rarity:'used', price:800, stat:'luck', val:7, dur:100 },
+  { id:'hook5', type:'hook', name:'Gamakatsu', rarity:'import', price:2500, stat:'luck', val:12, dur:100 },
+  { id:'hook6', type:'hook', name:'Decoy', rarity:'custom', price:7000, stat:'luck', val:18, dur:100 },
+  { id:'hook_ded', type:'hook', name:'ДЕДОВСКИЙ КРЮЧОК', rarity:'custom', price:0, stat:'luck', val:30, dur:9999 },
+
+  { id:'float1', type:'float', name:'Перо', rarity:'trash', price:0, stat:'luck', val:0, dur:100 },
+  { id:'float2', type:'float', name:'Пенопласт', rarity:'ru', price:100, stat:'luck', val:2, dur:100 },
+  { id:'float3', type:'float', name:'Самодельный', rarity:'craft', price:300, stat:'luck', val:5, dur:100 },
+  { id:'float4', type:'float', name:'Cralusso', rarity:'used', price:800, stat:'luck', val:8, dur:100 },
+  { id:'float5', type:'float', name:'Colmic', rarity:'import', price:2500, stat:'luck', val:14, dur:100 },
+  { id:'float6', type:'float', name:'Сенсорный', rarity:'custom', price:7000, stat:'luck', val:20, dur:100 },
+  { id:'float_ded', type:'float', name:'ДЕДОВСКИЙ ПОПЛАВОК', rarity:'custom', price:0, stat:'luck', val:40, dur:9999 },
+
+  { id:'bait1', type:'bait', name:'Хлеб', rarity:'trash', price:0, stat:'luck', val:0, dur:100 },
+  { id:'bait2', type:'bait', name:'Кукуруза', rarity:'ru', price:100, stat:'luck', val:2, dur:100 },
+  { id:'bait3', type:'bait', name:'Пенопласт', rarity:'craft', price:300, stat:'luck', val:5, dur:100 },
+  { id:'bait4', type:'bait', name:'Rapala', rarity:'used', price:800, stat:'luck', val:8, dur:100 },
+  { id:'bait5', type:'bait', name:'Jackall', rarity:'import', price:2500, stat:'luck', val:14, dur:100 },
+  { id:'bait6', type:'bait', name:'Megabass', rarity:'custom', price:7000, stat:'luck', val:20, dur:100 },
+  { id:'bait_ded', type:'bait', name:'ДЕДОВСКАЯ НАЖИВКА', rarity:'custom', price:0, stat:'luck', val:40, dur:9999 },
+
+  { id:'motor1', type:'motor', name:'Весла', rarity:'trash', price:0, stat:'speed', val:0, dur:100 },
+  { id:'motor2', type:'motor', name:'Вихрь', rarity:'ru', price:800, stat:'speed', val:10, dur:100 },
+  { id:'motor3', type:'motor', name:'Мотор от пилы', rarity:'craft', price:1500, stat:'speed', val:18, dur:100 },
+  { id:'motor4', type:'motor', name:'Yamaha 5', rarity:'used', price:4000, stat:'speed', val:30, dur:100 },
+  { id:'motor5', type:'motor', name:'Honda 250', rarity:'import', price:12000, stat:'speed', val:50, dur:100 },
+  { id:'motor6', type:'motor', name:'Mercury 500', rarity:'custom', price:30000, stat:'speed', val:70, dur:100 },
+  { id:'motor_ded', type:'motor', name:'ДЕДОВСКИЙ МОТОР', rarity:'custom', price:0, stat:'speed', val:100, dur:9999 },
+
+  { id:'hull1', type:'hull', name:'Фанера', rarity:'trash', price:0, stat:'luck', val:0, dur:100 },
+  { id:'hull2', type:'hull', name:'Алюминий', rarity:'ru', price:1000, stat:'luck', val:3, dur:100 },
+  { id:'hull3', type:'hull', name:'Стеклопласт', rarity:'craft', price:2500, stat:'luck', val:6, dur:100 },
+  { id:'hull4', type:'hull', name:'РИБ', rarity:'used', price:6000, stat:'luck', val:10, dur:100 },
+  { id:'hull5', type:'hull', name:'Карбон', rarity:'import', price:15000, stat:'luck', val:16, dur:100 },
+  { id:'hull6', type:'hull', name:'Титановый', rarity:'custom', price:40000, stat:'luck', val:25, dur:100 },
+  { id:'hull_ded', type:'hull', name:'ДЕДОВСКИЙ КОРПУС', rarity:'custom', price:0, stat:'luck', val:50, dur:9999 },
+
+  { id:'radar1', type:'radar', name:'Глаза', rarity:'trash', price:0, stat:'luck', val:0, dur:100 },
+  { id:'radar2', type:'radar', name:'Эхолот', rarity:'ru', price:500, stat:'luck', val:2, dur:100 },
+  { id:'radar3', type:'radar', name:'Сонар', rarity:'craft', price:1200, stat:'luck', val:4, dur:100 },
+  { id:'radar4', type:'radar', name:'Garmin Striker', rarity:'used', price:3000, stat:'luck', val:7, dur:100 },
+  { id:'radar5', type:'radar', name:'Lowrance', rarity:'import', price:8000, stat:'luck', val:12, dur:100 },
+  { id:'radar6', type:'radar', name:'Гидролокатор', rarity:'custom', price:20000, stat:'luck', val:18, dur:100 },
+  { id:'radar_ded', type:'radar', name:'ДЕДОВСКИЙ РАДАР', rarity:'custom', price:0, stat:'luck', val:35, dur:9999 },
+
+  { id:'elec1', type:'elec', name:'Фонарик', rarity:'trash', price:0, stat:'speed', val:0, dur:100 },
+  { id:'elec2', type:'elec', name:'Компас', rarity:'ru', price:400, stat:'speed', val:3, dur:100 },
+  { id:'elec3', type:'elec', name:'Навигатор', rarity:'craft', price:1500, stat:'speed', val:8, dur:100 },
+  { id:'elec4', type:'elec', name:'Garmin GPS', rarity:'used', price:3500, stat:'speed', val:15, dur:100 },
+  { id:'elec5', type:'elec', name:'Raymarine', rarity:'import', price:9000, stat:'speed', val:25, dur:100 },
+  { id:'elec6', type:'elec', name:'Автопилот ИИ', rarity:'custom', price:25000, stat:'speed', val:40, dur:100 },
+  { id:'elec_ded', type:'elec', name:'ДЕДОВСКИЙ НАВИГАТОР', rarity:'custom', price:0, stat:'speed', val:60, dur:9999 },
+
+  { id:'hold1', type:'hold', name:'Ведро', rarity:'trash', price:0, stat:'luck', val:0, dur:100 },
+  { id:'hold2', type:'hold', name:'Ящик', rarity:'ru', price:600, stat:'luck', val:2, dur:100 },
+  { id:'hold3', type:'hold', name:'Термос', rarity:'craft', price:1800, stat:'luck', val:5, dur:100 },
+  { id:'hold4', type:'hold', name:'Холодильник', rarity:'used', price:4500, stat:'luck', val:9, dur:100 },
+  { id:'hold5', type:'hold', name:'Coleman', rarity:'import', price:10000, stat:'luck', val:15, dur:100 },
+  { id:'hold6', type:'hold', name:'Криокамера', rarity:'custom', price:30000, stat:'luck', val:22, dur:100 },
+  { id:'hold_ded', type:'hold', name:'ДЕДОВСКИЙ ТРЮМ', rarity:'custom', price:0, stat:'luck', val:40, dur:9999 },
+];
+
+const REPAIR_BASE = { trash: 50, ru: 150, craft: 400, used: 1000, import: 3000, custom: 10000 };
+
+const RANKS = [
+  { lvl: 1, name: 'Нуб' }, { lvl: 5, name: 'Новичок' }, { lvl: 10, name: 'Обучающийся' },
+  { lvl: 15, name: 'Среднивечёк' }, { lvl: 20, name: 'Профессионал' }, { lvl: 25, name: 'Мастер' },
+  { lvl: 30, name: 'Легенда' }, { lvl: 35, name: 'Хакер' }, { lvl: 40, name: 'Рыбак 1 класса' },
+  { lvl: 50, name: 'Топовый рыбак' }, { lvl: 60, name: 'Элита' }, { lvl: 70, name: 'Гуру' },
+  { lvl: 80, name: 'Повелитель вод' }, { lvl: 90, name: 'Бог рыбалки' }, { lvl: 100, name: 'ДЕД рыбалки' }
+];
+
+const ACHIEVEMENTS = [
+  { id:'a1', name:'Первый шаг', desc:'Поймай 1 рыбу', check: s => Object.keys(s.caughtSpecies||{}).length > 0, xp:10, money:10 },
+  { id:'a2', name:'Новичок', desc:'Поймай 10 рыб', check: s => Object.values(s.caughtSpecies||{}).reduce((a,b)=>a+b,0) >= 10, xp:20, money:30 },
+  { id:'a3', name:'Рыболов', desc:'Поймай 50 рыб', check: s => Object.values(s.caughtSpecies||{}).reduce((a,b)=>a+b,0) >= 50, xp:50, money:100 },
+  { id:'a4', name:'Профи', desc:'Поймай 100 рыб', check: s => Object.values(s.caughtSpecies||{}).reduce((a,b)=>a+b,0) >= 100, xp:100, money:200 },
+  { id:'a5', name:'Мастер', desc:'Поймай 500 рыб', check: s => Object.values(s.caughtSpecies||{}).reduce((a,b)=>a+b,0) >= 500, xp:500, money:800 },
+  { id:'a6', name:'Легенда', desc:'Поймай 1000 рыб', check: s => Object.values(s.caughtSpecies||{}).reduce((a,b)=>a+b,0) >= 1000, xp:1000, money:2000 },
+  { id:'a7', name:'Копейка', desc:'Накопи 100$', check: s => s.money >= 100, xp:10, money:0 },
+  { id:'a8', name:'Тысячник', desc:'Накопи 1000$', check: s => s.money >= 1000, xp:50, money:0 },
+  { id:'a9', name:'Богач', desc:'Накопи 10000$', check: s => s.money >= 10000, xp:200, money:0 },
+  { id:'a10', name:'Миллионер', desc:'Накопи 100000$', check: s => s.money >= 100000, xp:1000, money:0 },
+  { id:'a11', name:'Ученик', desc:'Достигни 5 ур.', check: s => s.level >= 5, xp:20, money:50 },
+  { id:'a12', name:'Студент', desc:'Достигни 10 ур.', check: s => s.level >= 10, xp:50, money:100 },
+  { id:'a13', name:'Специалист', desc:'Достигни 20 ур.', check: s => s.level >= 20, xp:100, money:200 },
+  { id:'a14', name:'Эксперт', desc:'Достигни 30 ур.', check: s => s.level >= 30, xp:200, money:400 },
+  { id:'a15', name:'Гуру', desc:'Достигни 50 ур.', check: s => s.level >= 50, xp:500, money:1000 },
+  { id:'a16', name:'ДЕД', desc:'Достигни 100 ур.', check: s => s.level >= 100, xp:1000, money:3000 },
+  { id:'a17', name:'Путешественник', desc:'Открой 2 локации', check: s => s.ownedBoats.length >= 2, xp:20, money:50 },
+  { id:'a18', name:'Исследователь', desc:'Открой 3 локации', check: s => s.ownedBoats.length >= 3, xp:50, money:150 },
+  { id:'a19', name:'Мореплаватель', desc:'Открой все локации', check: s => s.ownedBoats.length >= 4, xp:200, money:500 },
+  { id:'a20', name:'Редкая находка', desc:'Поймай редкую рыбу', check: s => Object.keys(s.caughtSpecies||{}).some(k => LOCATIONS.flatMap(l=>l.fish).find(f=>f.name===k && f.rarity==='rare')), xp:50, money:100 },
+  { id:'a21', name:'Эпическая удача', desc:'Поймай эпическую рыбу', check: s => Object.keys(s.caughtSpecies||{}).some(k => LOCATIONS.flatMap(l=>l.fish).find(f=>f.name===k && f.rarity==='epic')), xp:100, money:250 },
+  { id:'a22', name:'Легендарный улов', desc:'Поймай легендарную рыбу', check: s => Object.keys(s.caughtSpecies||{}).some(k => LOCATIONS.flatMap(l=>l.fish).find(f=>f.name===k && f.rarity==='legend')), xp:200, money:500 },
+  
+  { id:'a23', name:'Коллекционер', desc:'Купи 5 деталей (всего 15)', check: s => s.ownedEquip.length >= 15, xp:20, money:50 },
+  { id:'a24', name:'Механик', desc:'Купи 15 деталей (всего 25)', check: s => s.ownedEquip.length >= 25, xp:50, money:150 },
+  { id:'a25', name:'Инженер', desc:'Купи 30 деталей (всего 40)', check: s => s.ownedEquip.length >= 40, xp:200, money:500 },
+  
+  { id:'a26', name:'Импортер', desc:'Купи импортную деталь', check: s => s.ownedEquip.some(eq => EQUIPMENT.find(e=>e.id===eq && e.rarity==='import')), xp:100, money:200 },
+  { id:'a27', name:'Кастомизатор', desc:'Купи кастомную деталь', check: s => s.ownedEquip.some(eq => EQUIPMENT.find(e=>e.id===eq && e.rarity==='custom')), xp:200, money:500 },
+  { id:'a28', name:'Кладоискатель', desc:'Открой 10 ящиков', check: s => s.openedCrates >= 10, xp:50, money:100 },
+  { id:'a29', name:'Джекпот', desc:'Открой 50 ящиков', check: s => s.openedCrates >= 50, xp:200, money:400 },
+  { id:'a30', name:'Трудоголик', desc:'Потрать 1000 энергии', check: s => s.energySpent >= 1000, xp:100, money:200 },
+  { id:'a31', name:'Соня', desc:'Отдохни 10 раз', check: s => s.restedCount >= 10, xp:50, money:100 },
+  { id:'a32', name:'Вкладчик', desc:'Открой 3 вклада', check: s => s.depositsCreated >= 3, xp:50, money:100 },
+  { id:'a33', name:'Кредитор', desc:'Возьми кредит', check: s => s.creditTakenCount >= 1, xp:20, money:50 },
+  { id:'a34', name:'Начальник', desc:'Найми 1 рыбака', check: s => s.ownedFishers.length >= 1, xp:30, money:50 },
+  { id:'a35', name:'Бригадир', desc:'Найми 2 рыбаков', check: s => s.ownedFishers.length >= 2, xp:100, money:200 },
+  { id:'a36', name:'Дедовский', desc:'Открой дедовский катер', check: s => s.ownedBoats.includes('boat_ded'), xp:1000, money:3000 },
+  { id:'a37', name:'Вечный', desc:'Получи дедовскую удочку', check: s => s.ownedEquip.includes('rod_ded'), xp:1000, money:3000 },
+  { id:'a38', name:'Оптовик', desc:'Продай 100 рыб за раз', check: s => s.maxCatchSold >= 100, xp:100, money:200 },
+  { id:'a39', name:'Гурман', desc:'Поймай 10 разных видов', check: s => Object.keys(s.caughtSpecies||{}).length >= 10, xp:50, money:100 },
+  { id:'a40', name:'Гурман+', desc:'Поймай все виды (Пруд)', check: s => LOCATIONS.find(l=>l.id==='pond').fish.every(f=>s.caughtSpecies[f.name] > 0), xp:100, money:250 },
+  { id:'a41', name:'Морской волк', desc:'Поймай все виды (Море)', check: s => LOCATIONS.find(l=>l.id==='sea').fish.every(f=>s.caughtSpecies[f.name] > 0), xp:300, money:600 },
+  { id:'a42', name:'Игрушечник', desc:'Поймай игрушечную рыбу', check: s => Object.keys(s.caughtSpecies||{}).some(k => LOCATIONS.flatMap(l=>l.fish).find(f=>f.name===k && f.price===0)), xp:20, money:10 },
+  { id:'a43', name:'Аккуратист', desc:'Отремонтируй 5 деталей', check: s => s.repairedCount >= 5, xp:50, money:100 },
+  { id:'a44', name:'Неряха', desc:'Сломай деталь', check: s => Object.values(s.equipDurability||{}).some(d => d === 0), xp:10, money:10 },
+  { id:'a45', name:'Скоростной', desc:'Прокачай скорость >100%', check: s => {
+      let spd=0; const eq = [...Object.values(s.rod||{}), ...Object.values(s.boatParts||{})];
+      eq.forEach(id => { const item = EQUIPMENT.find(x => x.id === id); if (item && (s.equipDurability||{})[item.id] > 0 && item.stat === 'speed') spd += item.val; });
+      return spd >= 100;
+    }, xp:100, money:200 },
+  { id:'a46', name:'Удачливый', desc:'Прокачай удачу >100%', check: s => {
+      let lck=0; const eq = [...Object.values(s.rod||{}), ...Object.values(s.boatParts||{})];
+      eq.forEach(id => { const item = EQUIPMENT.find(x => x.id === id); if (item && (s.equipDurability||{})[item.id] > 0 && item.stat === 'luck') lck += item.val; });
+      return lck >= 100;
+    }, xp:100, money:200 },
+  { id:'a47', name:'Техник', desc:'Улучши лодку до кастома', check: s => s.ownedEquip.includes('motor6') || s.ownedEquip.includes('hull6'), xp:100, money:200 },
+  { id:'a48', name:'Полиглот', desc:'Смени 5 локаций', check: s => s.locChanges >= 5, xp:20, money:50 },
+  { id:'a49', name:'Богач+', desc:'Заработай 1 миллион', check: s => s.totalMoneyEarned >= 1000000, xp:1000, money:2000 },
+  { id:'a50', name:'На рыбалке с Дедом', desc:'Пройди игру', check: s => s.gameBeaten, xp:1000, money:3000 }
+];
+
+const FISHERS = [
+  { id:'f1', name:'Новичок', desc:'+1 рыба', price:500, count:1 },
+  { id:'f2', name:'Профи', desc:'+3 рыбы', price:2000, count:3 },
+];
+
+const DEPOSIT_OPTIONS = [
+  { id:'d3',  name:'3 дня',  days:3,  rate:0.004 },
+  { id:'d7',  name:'7 дней', days:7,  rate:0.005 },
+];
+const DEPOSIT_AMOUNTS = [100, 500, 2000, 5000];
+const CREDIT_OPTIONS = [{ id:'c500', sum:500 }, { id:'c2000', sum:2000 }];
+const CREDIT_RATE = 0.25;
+const CREDIT_DAYS = 7;
+
+let state = {
+  money: 0, 
+  catch: [], level: 1, xp: 0, day: 1, energy: 100, maxEnergy: 100,
+  currentLoc: 'pond', ownedBoats: ['boat_pond'], ownedFishers: [], invCap: 10, invExpandCost: 200,
+  marketPrices: {},
+  rod: { rod:'rod1', reel:'reel1', line:'line1', hook:'hook1', float:'float1', bait:'bait1' },
+  boatParts: { motor:'motor1', hull:'hull1', radar:'radar1', elec:'elec1', hold:'hold1' },
+  ownedEquip: ['rod1','reel1','line1','hook1','float1','bait1','motor1','hull1','radar1','elec1','hold1'],
+  equipDurability: {}, inventoryEnergy: {}, deposits: [], credit: null, caughtSpecies: {}, gameBeaten: false,
+  achievementsUnlocked: [], openedCrates: 0, energySpent: 0, restedCount: 0, depositsCreated: 0, creditTakenCount: 0,
+  maxCatchSold: 0, repairedCount: 0, locChanges: 0, totalMoneyEarned: 0
+};
+
+const saved = localStorage.getItem('fishing_game_v23');
+if (saved) { try { state = { ...state, ...JSON.parse(saved) }; } catch(e){} }
+
+if (!state.equipDurability) state.equipDurability = {};
+state.ownedEquip.forEach(id => { if (state.equipDurability[id] === undefined) state.equipDurability[id] = 100; });
+if (!state.inventoryEnergy) state.inventoryEnergy = {};
+if (!state.achievementsUnlocked) state.achievementsUnlocked = [];
+
+function save() { localStorage.setItem('fishing_game_v23', JSON.stringify(state)); }
+function getPrice(fishName) { return state.marketPrices[fishName] || 10; }
+
+function getRankInfo(lvl) {
+  if (lvl >= 100) return { name: 'НА РЫБАЛКЕ С ДЕДОМ' };
+  let current = RANKS[0];
+  for(let i=0; i<RANKS.length; i++) { if (lvl >= RANKS[i].lvl) current = RANKS[i]; }
+  return current;
+}
+
+// УСЛОЖНЕННАЯ ФОРМУЛА ОПЫТА
+function getXPNeed(lvl) { return Math.floor(10 + Math.pow(lvl, 1.7) * 8); }
+
+function getStats() {
+  let spd = 0, lck = 0;
+  const eq = [...Object.values(state.rod), ...Object.values(state.boatParts)];
+  eq.forEach(id => {
+    const item = EQUIPMENT.find(x => x.id === id);
+    if (item && (state.equipDurability[item.id] || 0) > 0) {
+      if (item.stat === 'speed') spd += item.val;
+      if (item.stat === 'luck') lck += item.val;
+    }
+  });
+  return { spd, lck };
+}
+
+function toast(msg) {
+  const t = document.getElementById('toastContainer');
+  const div = document.createElement('div');
+  div.className = 'toast';
+  div.textContent = msg;
+  t.appendChild(div);
+  setTimeout(() => div.remove(), 2500);
+}
+
+function checkAchievements() {
+  ACHIEVEMENTS.forEach(a => {
+    if (!state.achievementsUnlocked.includes(a.id)) {
+      if (a.check(state)) {
+        state.achievementsUnlocked.push(a.id);
+        state.money += a.money;
+        state.totalMoneyEarned += a.money;
+        state.xp += a.xp;
+        let leveledUp = false;
+        while (state.xp >= getXPNeed(state.level)) {
+          state.xp -= getXPNeed(state.level);
+          state.level++;
+          leveledUp = true;
+        }
+        if (leveledUp && state.level >= 100 && !state.gameBeaten) {
+          document.getElementById('eventOverlay').classList.add('show');
+          state.gameBeaten = true;
+          state.ownedBoats.push('boat_ded');
+          state.ownedEquip.push('rod_ded', 'reel_ded', 'line_ded', 'hook_ded', 'float_ded', 'bait_ded', 'motor_ded', 'hull_ded', 'radar_ded', 'elec_ded', 'hold_ded');
+          state.rod = { rod:'rod_ded', reel:'reel_ded', line:'line_ded', hook:'hook_ded', float:'float_ded', bait:'bait_ded' };
+          state.boatParts = { motor:'motor_ded', hull:'hull_ded', radar:'radar_ded', elec:'elec_ded', hold:'hold_ded' };
+          ['rod_ded', 'reel_ded', 'line_ded', 'hook_ded', 'float_ded', 'bait_ded', 'motor_ded', 'hull_ded', 'radar_ded', 'elec_ded', 'hold_ded'].forEach(id => {
+            state.equipDurability[id] = 9999;
+          });
+        }
+        toast(`🏆 Достижение: ${a.name}! +${a.money}$ +${a.xp}xp`);
+      }
+    }
+  });
+  save();
+}
+
+let activeFishCount = 0;
+function spawnFish() {
+  if (activeFishCount >= 8) return;
+  const pond = document.getElementById('pond');
+  if (state.currentLoc === 'tazik') pond.classList.add('tazik'); else pond.classList.remove('tazik');
+  const fish = document.createElement('div');
+  fish.className = 'bg-fish';
+  const isRight = Math.random() > 0.5;
+  const dur = 8 + Math.random()*8;
+  fish.style.top = (30 + Math.random() * 60) + '%';
+  fish.style.left = isRight ? '-50px' : '100%';
+  fish.style.animation = `${isRight ? 'swimRight' : 'swimLeft'} ${dur}s linear forwards`;
+  fish.style.transform = `scale(${0.5 + Math.random() * 1.5})`;
+  const colors = ['rgba(0, 212, 255, 0.3)', 'rgba(0, 255, 136, 0.3)', 'rgba(255, 204, 0, 0.3)'];
+  fish.style.background = colors[Math.floor(Math.random() * colors.length)];
+  pond.appendChild(fish);
+  activeFishCount++;
+  setTimeout(() => { if (fish.parentNode) { fish.parentNode.removeChild(fish); activeFishCount--; } }, dur * 1000);
+}
+
+function addXP(amount) {
+  state.xp += amount;
+  let leveledUp = false;
+  let oldRank = getRankInfo(state.level).name;
+  while (state.xp >= getXPNeed(state.level)) {
+    state.xp -= getXPNeed(state.level);
+    state.level++;
+    leveledUp = true;
+  }
+  let newRank = getRankInfo(state.level).name;
+  if (leveledUp) {
+    if (state.level >= 100 && !state.gameBeaten) {
+      document.getElementById('eventOverlay').classList.add('show');
+      state.gameBeaten = true;
+      state.ownedBoats.push('boat_ded');
+      state.ownedEquip.push('rod_ded', 'reel_ded', 'line_ded', 'hook_ded', 'float_ded', 'bait_ded', 'motor_ded', 'hull_ded', 'radar_ded', 'elec_ded', 'hold_ded');
+      state.rod = { rod:'rod_ded', reel:'reel_ded', line:'line_ded', hook:'hook_ded', float:'float_ded', bait:'bait_ded' };
+      state.boatParts = { motor:'motor_ded', hull:'hull_ded', radar:'radar_ded', elec:'elec_ded', hold:'hold_ded' };
+      ['rod_ded', 'reel_ded', 'line_ded', 'hook_ded', 'float_ded', 'bait_ded', 'motor_ded', 'hull_ded', 'radar_ded', 'elec_ded', 'hold_ded'].forEach(id => {
+        state.equipDurability[id] = 9999;
+      });
+      save();
+    } else if (oldRank !== newRank && state.level < 100) {
+      toast(`Новое звание: ${newRank}!`);
+    }
+  }
+  checkAchievements();
+  save(); updateUI();
+}
+
+function updateUI() {
+  document.getElementById('money').textContent = state.money;
+  document.getElementById('catchCount').textContent = state.catch.length;
+  document.getElementById('invCap').textContent = state.invCap;
+  document.getElementById('invCap2').textContent = state.invCap;
+  document.getElementById('dayVal').textContent = state.day;
+  document.getElementById('marketMoney').textContent = state.money;
+  document.getElementById('shopMoney').textContent = state.money;
+  document.getElementById('crateMoney').textContent = state.money;
+  document.getElementById('marketCatchCount').textContent = state.catch.length;
+
+  const debtBadge = document.getElementById('debtBadge');
+  if (state.credit && state.credit.owed > 0) { debtBadge.style.display = 'block'; document.getElementById('debtVal').textContent = state.credit.owed; } else { debtBadge.style.display = 'none'; }
+
+  const rankInfo = getRankInfo(state.level);
+  document.getElementById('rankVal').textContent = state.level;
+  document.getElementById('rankName').textContent = rankInfo.name;
+  document.getElementById('rankBadge').textContent = state.level + ' ур.';
+  
+  const need = getXPNeed(state.level);
+  document.getElementById('xpVal').textContent = state.xp;
+  document.getElementById('xpNeed').textContent = need;
+  document.getElementById('xpFill').style.width = Math.min(100, (state.xp / need) * 100) + '%';
+
+  document.getElementById('energyFill').style.width = (state.energy / state.maxEnergy * 100) + '%';
+  document.getElementById('energyFill').style.background = state.energy < 20 ? '#ff0000' : '#ffaa00';
+  document.getElementById('status').textContent = state.energy < 10 ? 'Вы слишком устали!' : 'Тапни по воде, чтобы забросить';
+
+  document.getElementById('currentLocName').textContent = LOCATIONS.find(l => l.id === state.currentLoc).name;
+
+  let total = 0;
+  state.catch.forEach(f => total += getPrice(f.name));
+  document.getElementById('sellBtn').textContent = `Продать улов (${total})`;
+  document.getElementById('sellBtn').disabled = state.catch.length === 0;
+
+  const stats = getStats();
+  document.getElementById('statSpeed').textContent = stats.spd + '%';
+  document.getElementById('statLuck').textContent = stats.lck + '%';
+
+  const renderSlot = (targetType, type, elId) => {
+    const id = targetType === 'rod' ? state.rod[type] : state.boatParts[type];
+    const item = EQUIPMENT.find(x => x.id === id);
+    const el = document.getElementById(elId);
+    if (!item) { el.innerHTML = '-'; return; }
+    const dur = state.equipDurability[item.id] || 0;
+    let durColor = dur > 50 ? '#00ff88' : dur > 20 ? '#ffaa00' : '#ff4444';
+    let durStr = dur > 0 ? (dur >= 9999 ? `<br><span style="font-size:10px;color:#ffcc00">ВЕЧНАЯ</span>` : `<br><span style="font-size:10px;color:${durColor}">Прочность: ${dur}%</span>`) : `<br><span style="font-size:10px;color:#ff4444">СЛОМАНО</span>`;
+    let repairHtml = (dur < 100 && dur < 9999) ? `<button class="repair-btn" onclick="repairItem('${item.id}', event)">Ремонт</button>` : '';
+    el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;width:100%;">${item.name} ${repairHtml}</div>${durStr}`;
+  };
+
+  renderSlot('rod', 'rod', 'gRod'); renderSlot('rod', 'reel', 'gReel'); renderSlot('rod', 'line', 'gLine'); renderSlot('rod', 'hook', 'gHook'); renderSlot('rod', 'float', 'gFloat'); renderSlot('rod', 'bait', 'gBait');
+  renderSlot('boat', 'motor', 'gMotor'); renderSlot('boat', 'hull', 'gHull'); renderSlot('boat', 'radar', 'gRadar'); renderSlot('boat', 'elec', 'gElec'); renderSlot('boat', 'hold', 'gHold');
+
+  const expandBtn = document.getElementById('expandInv');
+  expandBtn.textContent = `+5 (${state.invExpandCost})`;
+  expandBtn.disabled = state.money < state.invExpandCost;
+
+  const invRow = document.getElementById('invFishRow');
+  const isTazik = state.currentLoc === 'tazik';
+  document.getElementById('invHintText').textContent = isTazik ? 'Тапни, чтобы отпустить.' : 'Тапни по рыбе — продать.';
+  if (state.catch.length === 0) { invRow.innerHTML = '<div class="inv-empty">Пусто</div>'; } else {
+    const grouped = {};
+    state.catch.forEach(f => { grouped[f.name] = (grouped[f.name]||0)+1; });
+    invRow.innerHTML = Object.keys(grouped).map(name => {
+      const fData = LOCATIONS.flatMap(l=>l.fish).find(f=>f.name===name);
+      const p = getPrice(name);
+      return `<div class="inv-item" onclick="handleFishClick('${name}')"><span class="count">${grouped[name]}</span><span class="name">${name}</span><span class="price ${fData && fData.price === 0 ? 'toy' : ''}">${fData && fData.price === 0 ? 'Игрушка' : p}</span></div>`;
+    }).join('');
+  }
+
+  const enRow = document.getElementById('invEnergyRow');
+  const enKeys = Object.keys(state.inventoryEnergy).filter(k => state.inventoryEnergy[k] > 0);
+  if (enKeys.length === 0) { enRow.innerHTML = '<div class="inv-empty">Пусто</div>'; } else {
+    enRow.innerHTML = enKeys.map(id => {
+      const item = CONSUMABLES.find(x => x.id === id);
+      return `<div class="inv-item" onclick="useEnergy('${id}')"><span class="count">${state.inventoryEnergy[id]}</span><span class="name">${item.name}</span><span class="price">+${item.energy} E</span></div>`;
+    }).join('');
+  }
+
+  const activeTab = document.querySelector('.tab.active').dataset.tab;
+  if (activeTab === 'locations') renderLocations();
+  else if (activeTab === 'market') renderMarket();
+  else if (activeTab === 'shop') renderShop();
+  else if (activeTab === 'crates') renderCrates();
+  else if (activeTab === 'fishers') renderFishers();
+  else if (activeTab === 'collection') renderCollection();
+  else if (activeTab === 'achievements') renderAchievements();
+  else if (activeTab === 'bank') renderBank();
+}
+
+function useEnergy(id) {
+  if (!state.inventoryEnergy[id] || state.inventoryEnergy[id] <= 0) return;
+  const item = CONSUMABLES.find(x => x.id === id);
+  state.inventoryEnergy[id]--;
+  state.energy = Math.min(state.maxEnergy, state.energy + item.energy);
+  save(); updateUI();
+  toast(`Использовано: ${item.name} (+${item.energy} энергии)`);
+}
+
+function repairItem(id, event) {
+  event.stopPropagation();
+  const item = EQUIPMENT.find(x => x.id === id);
+  const dur = state.equipDurability[id] || 0;
+  if (dur >= 100) return;
+  const cost = Math.floor(REPAIR_BASE[item.rarity] * (1 - dur / 100));
+  if (state.money < cost) return toast(`Нужно $${cost}`);
+  state.money -= cost;
+  state.equipDurability[id] = 100;
+  state.repairedCount++;
+  checkAchievements();
+  save(); updateUI();
+  toast(`Отремонтировано за $${cost}`);
+}
+
+document.getElementById('restBtn').addEventListener('click', () => {
+  const missing = state.maxEnergy - state.energy;
+  const daysToRest = Math.ceil(missing / 30);
+  if (daysToRest <= 0) return toast('Вы полны сил!');
+  
+  state.day += daysToRest;
+  state.energy = state.maxEnergy;
+  state.restedCount++;
+  
+  LOCATIONS.forEach(loc => {
+    loc.fish.forEach(f => {
+      if (f.price > 0) {
+        let change = 0.8 + Math.random() * 0.4;
+        state.marketPrices[f.name] = Math.max(1, Math.floor(f.price * change));
+      }
+    });
+  });
+  
+  for(let i=0; i<daysToRest; i++) {
+    state.deposits.forEach(d => {
+      d.daysLeft--;
+      if (d.daysLeft <= 0) {
+        const profit = Math.floor(d.amount * d.rate * d.days);
+        state.money += d.amount + profit;
+        state.totalMoneyEarned += profit;
+        d.dead = true;
+      }
+    });
+    state.deposits = state.deposits.filter(d => !d.dead);
+  }
+  checkAchievements();
+  save(); updateUI();
+  toast(`Вы отдохнули ${daysToRest} дн.`);
+});
+
+document.getElementById('expandInv').addEventListener('click', () => {
+  if (state.money < state.invExpandCost) return toast('Мало денег');
+  state.money -= state.invExpandCost;
+  state.invCap += 5;
+  state.invExpandCost = Math.floor(state.invExpandCost * 1.5);
+  save(); updateUI();
+  toast('Корзина расширена!');
+});
+
+function renderLocations() {
+  const c = document.getElementById('locationsList');
+  c.innerHTML = LOCATIONS.map(loc => {
+    const isUnlocked = state.ownedBoats.includes(loc.boatReq);
+    const boat = BOATS.find(b => b.id === loc.boatReq);
+    let btnHtml = '';
+    if (isUnlocked) {
+      btnHtml = state.currentLoc === loc.id ? `<button class="loc-btn" disabled style="background:#333; color:#888;">ВЫ ЗДЕСЬ</button>` : `<button class="loc-btn" style="background:#00ff88; color:#002211;" onclick="gotoLoc('${loc.id}')">ПЛЫТЬ</button>`;
+    } else {
+      btnHtml = `<button class="loc-btn" style="background:#ffaa00; color:#3a1a00;" onclick="buyBoat('${boat.id}', ${boat.price})">КУПИТЬ ЛОДКУ (${boat.price}$)</button>`;
+    }
+    return `<div class="loc-card"><div class="loc-title">${loc.name}</div>${btnHtml}</div>`;
+  }).join('');
+}
+
+function gotoLoc(id) { state.currentLoc = id; state.locChanges++; checkAchievements(); save(); updateUI(); toast('Вы прибыли'); document.querySelector('[data-tab="fishing"]').click(); }
+function buyBoat(boatId, price) { if (state.money < price) return toast('Мало денег'); state.money -= price; state.ownedBoats.push(boatId); checkAchievements(); save(); updateUI(); toast('Куплено'); }
+
+function openPicker(target, type) {
+  const modal = document.getElementById('pickFishModal');
+  const list = document.getElementById('fishPickGrid');
+  document.getElementById('pickTitle').textContent = 'ВЫБОР';
+  let items = EQUIPMENT.filter(x => x.type === type && state.ownedEquip.includes(x.id));
+  if (items.length === 0) { list.innerHTML = '<div class="inv-empty">Нет деталей.</div>'; } 
+  else {
+    list.innerHTML = items.map(item => {
+      const isEq = (target === 'rod' && state.rod[type] === item.id) || (target === 'boat' && state.boatParts[type] === item.id);
+      const dur = state.equipDurability[item.id] || 0;
+      return `<div class="loc-card" style="margin:0; padding:8px; ${isEq ? 'border-color:#00ff88;' : ''}" onclick="selectPart('${target}', '${type}', '${item.id}')"><div class="lc-title" style="font-size:12px;">${item.name} (${dur}%)</div><div class="lc-desc" style="margin:0; margin-top:4px; font-size:10px;">+${item.val} ${item.stat === 'speed' ? 'Скорость' : 'Удача'}</div></div>`;
+    }).join('');
+  }
+  modal.classList.add('show');
+}
+
+function selectPart(target, type, id) { if (target === 'rod') state.rod[type] = id; if (target === 'boat') state.boatParts[type] = id; save(); updateUI(); document.getElementById('pickFishModal').classList.remove('show'); toast('Установлено'); }
+
+// ЛОГИКА ЦЕПОЧКИ ПОКУПОК
+function getRarityLevel(r) {
+  if (r === 'trash') return 0;
+  if (r === 'ru') return 1;
+  if (r === 'craft') return 2;
+  if (r === 'used') return 3;
+  if (r === 'import') return 4;
+  if (r === 'custom') return 5;
+  return 0;
+}
+
+function canBuyEquip(item) {
+  const lvl = getRarityLevel(item.rarity);
+  if (lvl === 0) return true; // С помойки можно всегда
+
+  const prevRarity = ['trash', 'ru', 'craft', 'used', 'import'][lvl - 1];
+  
+  // Ищем, куплена ли хотя бы одна деталь предыдущей редкости в этом же слоте
+  const hasPrev = state.ownedEquip.some(eqId => {
+    const eq = EQUIPMENT.find(e => e.id === eqId);
+    return eq && eq.type === item.type && eq.rarity === prevRarity;
+  });
+
+  if (!hasPrev) {
+    return `Сначала купи деталь "${RARITY_META[prevRarity].label}" для этого слота`;
+  }
+  return true;
+}
+
+function renderShop() {
+  const c = document.getElementById('shopContainer');
+  let html = '';
+  const cats = [
+    { key: 'rod', name: 'Удилища' }, { key: 'reel', name: 'Катушки' }, { key: 'line', name: 'Лески' }, { key: 'hook', name: 'Крючки' }, { key: 'float', name: 'Поплавки' }, { key: 'bait', name: 'Наживки' },
+    { key: 'motor', name: 'Моторы' }, { key: 'hull', name: 'Корпуса' }, { key: 'radar', name: 'Радары' }, { key: 'elec', name: 'Электроника' }, { key: 'hold', name: 'Трюмы' }
+  ];
+
+  cats.forEach(cat => {
+    html += `<div class="shop-category-title">${cat.name}</div><div class="shop-grid">`;
+    const items = EQUIPMENT.filter(x => x.type === cat.key && x.id.indexOf('ded') === -1);
+    html += items.map(item => {
+      const isOwned = state.ownedEquip.includes(item.id);
+      const canBuy = state.money >= item.price;
+      const chainCheck = canBuyEquip(item);
+      const canBuyFinal = canBuy && (chainCheck === true);
+      
+      let errorHint = '';
+      if (typeof chainCheck === 'string') {
+        errorHint = `<div style="font-size:8px; color:#ff6666; margin-top:4px; line-height:1.2;">${chainCheck}</div>`;
+      }
+
+      return `<div class="shop-item ${RARITY_META[item.rarity].class}">
+        <div class="si-type">${RARITY_META[item.rarity].label}</div>
+        <div class="si-name">${item.name}</div>
+        <div class="si-desc">+${item.val} ${item.stat === 'speed' ? 'Скорость' : 'Удача'}</div>
+        ${isOwned ? `<div style="color:#00ff88; font-size:10px; font-weight:bold; text-align:center;">КУПЛЕНО</div>` : `<button class="si-buy" ${!canBuyFinal ? 'disabled' : ''} onclick="buyEquip('${item.id}', ${item.price})">$${item.price}</button>`}
+        ${errorHint}
+      </div>`;
+    }).join('');
+    html += `</div>`;
+  });
+  
+  html += `<div class="shop-category-title">Расходники</div><div class="shop-grid">`;
+  html += CONSUMABLES.map(item => {
+    const canBuy = state.money >= item.price;
+    return `<div class="shop-item"><div class="si-type">Энергия</div><div class="si-name">${item.name}</div><div class="si-desc">+${item.energy} E</div><button class="si-buy" ${!canBuy ? 'disabled' : ''} onclick="buyEnergy('${item.id}', ${item.price})">$${item.price}</button></div>`;
+  }).join('');
+  html += `</div>`;
+
+  html += `<div class="shop-category-title">Лодки</div><div class="shop-grid">`;
+  html += BOATS.filter(b => b.id.indexOf('ded') === -1).map(b => {
+    const isOwned = state.ownedBoats.includes(b.id);
+    return `<div class="shop-item ${RARITY_META[b.rarity].class}"><div class="si-type">${RARITY_META[b.rarity].label}</div><div class="si-name">${b.name}</div><div class="si-desc">Открывает: ${LOCATIONS.find(l=>l.id===b.loc).name}</div>${isOwned ? `<div style="color:#00ff88; font-size:10px; font-weight:bold; text-align:center;">КУПЛЕНО</div>` : `<button class="si-buy" ${state.money < b.price ? 'disabled' : ''} onclick="buyBoat('${b.id}', ${b.price})">$${b.price}</button>`}</div>`;
+  }).join('');
+  html += `</div>`;
+
+  c.innerHTML = html;
+}
+
+function buyEquip(id, price) { 
+  if (state.money < price) return; 
+  const item = EQUIPMENT.find(x => x.id === id);
+  if (canBuyEquip(item) !== true) return toast(canBuyEquip(item));
+  
+  state.money -= price; 
+  state.ownedEquip.push(id); 
+  state.equipDurability[id] = 100;
+  checkAchievements();
+  save(); updateUI(); toast('Куплено!'); 
+}
+
+function buyEnergy(id, price) {
+  if (state.money < price) return;
+  state.money -= price;
+  state.inventoryEnergy[id] = (state.inventoryEnergy[id] || 0) + 1;
+  save(); updateUI(); toast('Куплено!');
+}
+
+function renderMarket() {
+  const sellC = document.getElementById('marketSellGrid');
+  const buyC = document.getElementById('marketBuyGrid');
+  if (state.catch.length === 0) { sellC.innerHTML = `<div class="inv-empty">Пусто</div>`; } 
+  else {
+    const grouped = {};
+    state.catch.forEach(f => { grouped[f.name] = (grouped[f.name]||0)+1; });
+    sellC.innerHTML = Object.keys(grouped).map(name => {
+      const fData = LOCATIONS.flatMap(l=>l.fish).find(f=>f.name===name);
+      const isToy = fData && fData.price === 0;
+      const price = isToy ? 0 : getPrice(name);
+      return `<div class="loc-card" style="margin-bottom:6px; padding:8px; display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:12px; font-weight:bold;">${name} x${grouped[name]}</div><div style="font-size:10px; color:#88bbdd;">${isToy ? 'Не продается' : 'Цена: ' + price}</div></div><button class="si-buy" style="width:auto; padding:4px 8px;" onclick="${isToy ? `toast('Игрушки нельзя продать')` : `sellFish('${name}')`}">${isToy ? 'Игрушка' : 'Продать'}</button></div>`;
+    }).join('');
+  }
+
+  buyC.innerHTML = LOCATIONS[0].fish.map(f => {
+    const p = getPrice(f.name);
+    return `<div class="loc-card" style="margin-bottom:6px; padding:8px; display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:12px; font-weight:bold;">${f.name}</div><div style="font-size:10px; color:#88bbdd;">Цена: ${p}</div></div><button class="si-buy" style="width:auto; padding:4px 8px;" onclick="buyFish('${f.name}', ${p})">Купить</button></div>`;
+  }).join('');
+}
+
+function sellFish(name) { const idx = state.catch.findIndex(f => f.name === name); if (idx === -1) return; state.money += getPrice(name); state.totalMoneyEarned += getPrice(name); state.catch.splice(idx, 1); save(); updateUI(); toast('Продано'); }
+function buyFish(name, price) { if (state.money < price) return toast('Мало денег'); if (state.catch.length >= state.invCap) return toast('Инвентарь полон'); state.money -= price; state.catch.push({ name }); save(); updateUI(); toast('Куплено'); }
+function handleFishClick(name) { const fData = LOCATIONS.flatMap(l=>l.fish).find(f=>f.name===name); if (fData && fData.price === 0) releaseFish(name); else sellFish(name); }
+function releaseFish(name) { const idx = state.catch.findIndex(f => f.name === name); if (idx === -1) return; const fData = LOCATIONS.flatMap(l=>l.fish).find(f=>f.name===name); const xpGained = FISH_META[fData.rarity].xp; addXP(xpGained); state.catch.splice(idx, 1); save(); updateUI(); toast(`Отпустил ${name} (+${xpGained} xp)`); }
+
+function renderCrates() {
+  const c1 = document.getElementById('crateGrid');
+  c1.innerHTML = `
+    <div class="shop-item" style="text-align:center;"><div class="si-name">Деревянный</div><button class="si-buy" onclick="openCrate(500, 'equip')">$500</button></div>
+    <div class="shop-item" style="text-align:center;"><div class="si-name">Железный</div><button class="si-buy" onclick="openCrate(2000, 'equip')">$2000</button></div>
+    <div class="shop-item" style="text-align:center;"><div class="si-name">Сейф</div><button class="si-buy" onclick="openCrate(8000, 'equip')">$8000</button></div>
+  `;
+  const c2 = document.getElementById('boatCrateGrid');
+  c2.innerHTML = `
+    <div class="shop-item" style="text-align:center;"><div class="si-name">Ящик деталей</div><button class="si-buy" onclick="openCrate(1000, 'boatpart')">$1000</button></div>
+    <div class="shop-item" style="text-align:center;"><div class="si-name">Морской сейф</div><button class="si-buy" onclick="openCrate(5000, 'boatpart')">$5000</button></div>
+    <div class="shop-item" style="text-align:center;"><div class="si-name">Кейс лодки</div><button class="si-buy" onclick="openCrate(15000, 'boat')">$15000</button></div>
+  `;
+  const c3 = document.getElementById('fishCrateGrid');
+  c3.innerHTML = `
+    <div class="shop-item" style="text-align:center;"><div class="si-name">Ящик с рыбой</div><button class="si-buy" onclick="openFishCrate(300)">$300</button></div>
+    <div class="shop-item" style="text-align:center;"><div class="si-name">Морской ящик</div><button class="si-buy" onclick="openFishCrate(1500)">$1500</button></div>
+  `;
+}
+
+function openCrate(price, type) {
+  if (state.money < price) return toast('Мало денег');
+  state.money -= price;
+  state.openedCrates++;
+  if (type === 'boat') {
+    if (Math.random() < 0.1) {
+      const availBoats = BOATS.filter(b => !state.ownedBoats.includes(b.id) && b.price > 0 && b.id.indexOf('ded') === -1);
+      if (availBoats.length > 0) {
+        const b = availBoats[Math.floor(Math.random() * availBoats.length)];
+        state.ownedBoats.push(b.id);
+        toast(`ВЫПАЛА ЛОДКА: ${b.name}!`);
+        checkAchievements(); save(); updateUI(); return;
+      }
+    }
+    type = 'boatpart';
+  }
+  const itemsPool = EQUIPMENT.filter(x => {
+    if (x.id.indexOf('ded') !== -1) return false;
+    if (type === 'boatpart') return ['motor', 'hull', 'radar', 'elec', 'hold'].includes(x.type) && x.price >= price * 0.3;
+    return ['rod', 'reel', 'line', 'hook', 'float', 'bait'].includes(x.type) && x.price >= price * 0.3;
+  });
+  const drop = itemsPool[Math.floor(Math.random() * itemsPool.length)];
+  if (drop) {
+    if (!state.ownedEquip.includes(drop.id)) {
+      state.ownedEquip.push(drop.id);
+      state.equipDurability[drop.id] = 100;
+      toast(`Выпало: ${drop.name}`);
+    } else {
+      state.equipDurability[drop.id] = 100;
+      toast(`Выпало: ${drop.name}. Прочность восстановлена.`);
+    }
+  } else {
+    state.money += Math.floor(price * 0.3);
+    toast(`Пусто. Возврат.`);
+  }
+  checkAchievements();
+  save(); updateUI();
+}
+
+function openFishCrate(price) {
+  if (state.money < price) return toast('Мало денег');
+  if (state.catch.length >= state.invCap) return toast('Инвентарь полон');
+  state.money -= price;
+  state.openedCrates++;
+  const loc = LOCATIONS.find(l => l.id === state.currentLoc);
+  const f = loc.fish[Math.floor(Math.random() * loc.fish.length)];
+  state.catch.push({ name: f.name });
+  state.caughtSpecies[f.name] = (state.caughtSpecies[f.name] || 0) + 1;
+  checkAchievements();
+  save(); updateUI();
+  toast(`Выпала: ${f.name}`);
+}
+
+function renderFishers() {
+  const c = document.getElementById('fisherRow');
+  c.innerHTML = FISHERS.map(f => {
+    const owned = state.ownedFishers.includes(f.id);
+    return `<div class="loc-card" style="margin-bottom:6px; padding:8px; min-width:100px;"><div style="font-size:12px; font-weight:bold; color:#00d4ff; margin-bottom:4px;">${f.name}</div><div style="font-size:10px; color:#88bbdd; margin-bottom:6px;">${f.desc}</div>${owned ? `<button class="si-buy" disabled>Нанят</button>` : `<button class="si-buy" onclick="hireFisher('${f.id}', ${f.price})">$${f.price}</button>`}</div>`;
+  }).join('');
+  document.getElementById('fisherCount').textContent = `${state.ownedFishers.length}/${FISHERS.length}`;
+}
+
+function hireFisher(id, price) { if (state.money < price) return toast('Мало денег'); state.money -= price; state.ownedFishers.push(id); checkAchievements(); save(); updateUI(); toast('Нанят'); }
+
+function renderCollection() {
+  const c = document.getElementById('collList');
+  const allFish = LOCATIONS.flatMap(l => l.fish);
+  const uniqueFish = [];
+  allFish.forEach(f => { if (!uniqueFish.find(x => x.name === f.name)) uniqueFish.push(f); });
+  const opened = uniqueFish.filter(f => state.caughtSpecies[f.name] > 0).length;
+  document.getElementById('collProgress').textContent = `${opened}/${uniqueFish.length}`;
+
+  let html = '';
+  LOCATIONS.forEach(loc => {
+    html += `<div class="shop-category-title" style="margin-top:8px;">${loc.name}</div><div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">`;
+    loc.fish.forEach(f => {
+      const caught = state.caughtSpecies[f.name] > 0;
+      const color = f.rarity === 'common' ? '#aaa' : f.rarity === 'uncommon' ? '#00dd88' : f.rarity === 'rare' ? '#00aaff' : f.rarity === 'epic' ? '#cc66ff' : '#ffcc00';
+      if (caught) html += `<div style="background:rgba(0,60,100,.5); border:1px solid ${color}55; border-radius:4px; padding:4px 6px; font-size:10px; font-weight:bold; text-align:center;"><div style="color:#fff;">${f.name}</div><div style="color:${color}; margin-top:2px;">${state.caughtSpecies[f.name]} шт</div></div>`;
+      else html += `<div style="background:rgba(0,30,60,.5); border:1px dashed #555; border-radius:4px; padding:4px 6px; font-size:10px; font-weight:bold; text-align:center; opacity:.5;"><div style="color:#888;">???</div><div style="color:#555; margin-top:2px;">Закрыто</div></div>`;
+    });
+    html += `</div>`;
+  });
+  
+  if (state.gameBeaten) {
+    html += `<div class="achievement">🏆 ДОСТИЖЕНИЕ РАЗБЛОКИРОВАНО<br><br>НА РЫБАЛКЕ С ДЕДОМ</div>`;
+  }
+
+  html += `<div style="margin-top:10px;display:flex;justify-content:center"><button class="reset-btn" onclick="document.getElementById('resetModal').classList.add('show')">Сбросить прогресс</button></div>`;
+  c.innerHTML = html;
+}
+
+function renderAchievements() {
+  const c = document.getElementById('achList');
+  const unlocked = state.achievementsUnlocked.length;
+  document.getElementById('achProgress').textContent = `${unlocked}/${ACHIEVEMENTS.length}`;
+  c.innerHTML = ACHIEVEMENTS.map(a => {
+    const isUnlocked = state.achievementsUnlocked.includes(a.id);
+    return `<div class="ach-item ${!isUnlocked ? 'locked' : ''}"><div class="ach-icon">${isUnlocked ? '🏆' : '🔒'}</div><div class="ach-info"><div class="ach-name">${a.name}</div><div class="ach-desc">${a.desc}</div></div></div>`;
+  }).join('');
+}
+
+function renderBank() {
+  const activeBox = document.getElementById('activeDeposits');
+  const depTotal = state.deposits.reduce((s,d) => s + d.amount, 0);
+  document.getElementById('depTotal').textContent = depTotal;
+  if (state.deposits.length === 0) { activeBox.innerHTML = '<div class="inv-empty">Нет вкладов</div>'; } 
+  else { activeBox.innerHTML = state.deposits.map(d => `<div class="active-dep"><div><div class="ad-name">${d.name}</div><div class="ad-status">Осталось: ${d.daysLeft} дн.</div></div><div class="ad-amount">+${d.amount}</div></div>`).join(''); }
+
+  const depOpts = document.getElementById('depositOptions');
+  let html = '';
+  DEPOSIT_OPTIONS.forEach(d => {
+    DEPOSIT_AMOUNTS.forEach(amt => {
+      const profit = Math.floor(amt * d.rate * d.days);
+      const canAfford = state.money >= amt;
+      html += `<div class="dep-opt ${!canAfford?'disabled':''}" data-dep="${d.id}" data-amt="${amt}" onclick="openDeposit('${d.id}', ${amt})"><div><div class="dep-name">${d.name} · ${amt}</div><div class="dep-rate">${(d.rate*100).toFixed(1)}%/день</div></div><div class="dep-get">+${profit}<small>прибыль</small></div></div>`;
+    });
+  });
+  depOpts.innerHTML = html;
+
+  const crBox = document.getElementById('creditOptions');
+  const hasDebt = state.credit && state.credit.owed > 0;
+  if (hasDebt) { crBox.innerHTML = '<div class="inv-empty" style="text-align:center">Погасите долг!</div>'; document.getElementById('creditStatus').textContent = 'Есть долг'; document.getElementById('creditStatus').style.color = '#ff6666'; } 
+  else {
+    document.getElementById('creditStatus').textContent = 'Нет долга'; document.getElementById('creditStatus').style.color = '#00ff88';
+    crBox.innerHTML = CREDIT_OPTIONS.map(c => { const total = Math.floor(c.sum * (1 + CREDIT_RATE)); return `<div class="dep-opt" onclick="takeCredit(${c.sum})"><div><div class="dep-name">Кредит: ${c.sum}</div><div class="dep-rate">${CREDIT_DAYS} дней</div></div><div class="dep-get" style="color:#ff6666">-${total}<small>отдать</small></div></div>`; }).join('');
+  }
+
+  const acCard = document.getElementById('activeCreditCard');
+  if (hasDebt) {
+    acCard.style.display = 'block';
+    document.getElementById('acAmount').textContent = `${state.credit.owed}`;
+    document.getElementById('activeCreditBox').innerHTML = `<div class="ac-row" style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:10px;font-weight:bold;"><span>Взято:</span><span>${state.credit.sum}</span></div><div class="ac-row" style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:10px;font-weight:bold;"><span>Дней:</span><span>${state.credit.daysLeft}</span></div><button class="si-buy" style="width:100%; margin-top:6px;" onclick="payCredit()" ${state.money < 1 ? 'disabled' : ''}>Погасить (${state.credit.owed})</button>`;
+  } else { acCard.style.display = 'none'; }
+}
+
+function openDeposit(id, amt) { if (state.money < amt) return toast('Мало денег'); const d = DEPOSIT_OPTIONS.find(x => x.id === id); state.money -= amt; state.deposits.push({ id: d.id, name: d.name, amount: amt, rate: d.rate, days: d.days, daysLeft: d.days }); state.depositsCreated++; checkAchievements(); save(); updateUI(); toast(`Вклад ${amt} открыт`); }
+function takeCredit(sum) { const total = Math.floor(sum * (1 + CREDIT_RATE)); state.money += sum; state.credit = { sum, owed: total, daysLeft: CREDIT_DAYS }; state.creditTakenCount++; checkAchievements(); save(); updateUI(); toast(`Кредит ${sum} получен!`); }
+function payCredit() { if (!state.credit) return; const owed = state.credit.owed; if (state.money < owed) return toast('Мало денег'); state.money -= owed; state.credit = null; save(); updateUI(); toast('Кредит погашен!'); }
+
+document.getElementById('pond').addEventListener('click', () => {
+  if (state.catch.length >= state.invCap) return toast('Инвентарь полон');
+  if (state.energy < 10) return toast('Вы устали! Нажмите "Отдохнуть"');
+  
+  const status = document.getElementById('status');
+  status.textContent = 'ЖДЕМ...';
+  
+  state.energy -= 10;
+  state.energySpent += 10;
+  
+  const eq = [...Object.values(state.rod), ...Object.values(state.boatParts)];
+  eq.forEach(id => {
+    const item = EQUIPMENT.find(x => x.id === id);
+    if (item && id.indexOf('ded') === -1 && state.equipDurability[id] > 0) {
+      state.equipDurability[id] = Math.max(0, state.equipDurability[id] - 2);
+    }
+  });
+  
+  save(); updateUI();
+
+  const stats = getStats();
+  const speedMult = 1 - (stats.spd / 100);
+  const waitTime = (1500 + Math.random() * 1000) * Math.max(0.1, speedMult);
+  
+  setTimeout(() => {
+    status.textContent = 'КЛЮЕТ!';
+    setTimeout(() => {
+      const loc = LOCATIONS.find(l => l.id === state.currentLoc);
+      let totalWeight = 0;
+      const pool = loc.fish.map(f => { let w = f.chance; if (f.rarity !== 'common') w += stats.lck; totalWeight += w; return { ...f, w }; });
+      let r = Math.random() * totalWeight;
+      let caught = pool[0];
+      for(let f of pool) { if (r < f.w) { caught = f; break; } r -= f.w; }
+      state.catch.push({ name: caught.name });
+      addXP(FISH_META[caught.rarity].xp);
+      state.caughtSpecies[caught.name] = (state.caughtSpecies[caught.name] || 0) + 1;
+      const p = document.getElementById('pond');
+      const el = document.createElement('div'); el.className = 'float-text'; el.textContent = `+${caught.name}`; el.style.left = '30%'; el.style.top = '40%';
+      p.appendChild(el); setTimeout(() => el.remove(), 1000);
+      status.textContent = `ПОЙМАЛ: ${caught.name}`;
+      checkAchievements();
+      save(); updateUI();
+    }, 400);
+  }, waitTime);
+});
+
+document.getElementById('sellBtn').addEventListener('click', () => {
+  let total = 0;
+  const initialCount = state.catch.length;
+  state.catch = state.catch.filter(f => {
+    const fData = LOCATIONS.flatMap(l=>l.fish).find(x=>x.name===f.name);
+    if (fData && fData.price === 0) return true;
+    total += getPrice(f.name); return false;
+  });
+  state.money += total; 
+  state.totalMoneyEarned += total;
+  if (initialCount > state.maxCatchSold) state.maxCatchSold = initialCount;
+  checkAchievements();
+  save(); updateUI(); toast(`+$${total}`);
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.inventory').forEach(c => c.classList.remove('show'));
+    document.getElementById('fishingView').style.display = 'none';
+    tab.classList.add('active');
+    const tabId = tab.dataset.tab;
+    if (tabId === 'fishing') { document.getElementById('fishingView').style.display = 'flex'; } 
+    else { document.getElementById(tabId + 'View').classList.add('show'); }
+    updateUI();
+  });
+});
+
+document.getElementById('closePick').addEventListener('click', () => document.getElementById('pickFishModal').classList.remove('show'));
+document.getElementById('cancelReset').addEventListener('click', () => document.getElementById('resetModal').classList.remove('show'));
+
+LOCATIONS.forEach(l => l.fish.forEach(f => { if (!state.marketPrices[f.name]) state.marketPrices[f.name] = f.price; }));
+updateUI();
+checkAchievements();
+
+setInterval(() => { if(Math.random() > 0.3) spawnFish(); }, 2000);
+
+// ТАЙМЕР ДНЕЙ
+let secondsToDay = 60;
+setInterval(() => {
+  secondsToDay--;
+  if (secondsToDay <= 0) {
+    secondsToDay = 60;
+    state.day++;
+    LOCATIONS.forEach(loc => {
+      loc.fish.forEach(f => {
+        if (f.price > 0) {
+          let change = 0.8 + Math.random() * 0.4;
+          state.marketPrices[f.name] = Math.max(1, Math.floor(f.price * change));
+        }
+      });
+    });
+    save(); updateUI();
+    toast('Новый день! Цены изменились');
+  }
+}, 1000);
+</script>
+</body>
+</html>
